@@ -376,9 +376,10 @@ function syncIdentificationConsent(){
     const campo = document.getElementById(id);
     if(!campo) return;
     campo.disabled = anonimo;
+    campo.required = !anonimo;
     campo.classList.toggle('opacity-50', anonimo);
     campo.classList.toggle('cursor-not-allowed', anonimo);
-    if(anonimo && id === 'telefone') campo.setCustomValidity('');
+    if(anonimo) campo.setCustomValidity('');
   });
 }
 async function init(){
@@ -402,12 +403,25 @@ async function submitForm(e){
   const r=collect();
   if(!r.autorizacao){ alert('Escolha uma opção de consentimento antes de finalizar o envio.'); return; }
   const autorizou = r.autorizacao === 'CONSENTIU_LGPD_E_PUBLICACAO_NOME';
+  if(autorizou){
+    const faltando=[];
+    if(!r.nome.trim()) faltando.push('Nome completo');
+    if(!r.municipio.trim()) faltando.push('Município / Entidade');
+    if(!r.cargo.trim()) faltando.push('Cargo ou função');
+    if(!r.email.trim()) faltando.push('E-mail profissional');
+    if(!r.telefone.trim()) faltando.push('Telefone/WhatsApp');
+    if(faltando.length){ alert('Preencha os dados obrigatórios: ' + faltando.join(', ') + '.'); return; }
+    if(!/^\([0-9]{2}\) 9 [0-9]{4}-[0-9]{4}$/.test(r.telefone.trim())){
+      alert('Preencha o Telefone/WhatsApp no formato correto: (43) 9 9999-9999.');
+      return;
+    }
+  }
   const payload={
-    nome:autorizou?r.nome:'',
-    municipio:autorizou?r.municipio:'',
-    cargo:autorizou?r.cargo:'',
-    email:autorizou?r.email:'',
-    telefone:autorizou?r.telefone:'',
+    nome:autorizou?r.nome.trim():'',
+    municipio:autorizou?r.municipio.trim():'',
+    cargo:autorizou?r.cargo.trim():'',
+    email:autorizou?r.email.trim():'',
+    telefone:autorizou?r.telefone.trim():'',
     perfil:autorizou?r.perfil:'',
     porte:autorizou?r.porte:'',
     experiencia:autorizou?r.experiencia:'',
@@ -415,14 +429,15 @@ async function submitForm(e){
     apoio:r.apoio,
     duvida:r.duvida,
     autorizacao:r.autorizacao,
-    lgpd_consent:autorizou,
+    lgpd_consent:true,
     topicos:r.topicos,
     score:r.score
   };
   const {error}=await sb.from('survey_responses').insert(payload);
-  if(error){ console.error(error); alert('Erro ao enviar. Verifique a conexão e as regras do Supabase.'); return; }
+  if(error){ console.error('ERRO SUPABASE AO ENVIAR:', error); alert('Erro ao enviar: ' + (error.message || 'verifique a conexão e as regras do Supabase.')); return; }
   alert(autorizou ? 'Obrigado! Suas respostas foram registradas com o consentimento informado.' : 'Obrigado! Suas respostas foram registradas de forma anônima, sem dados de identificação.');
   e.target.reset();
+  syncIdentificationConsent();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function show(id){ ['form','login','admin','checklist'].forEach(x=>document.getElementById(x).classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); if(id==='admin') renderAdmin(); }
